@@ -13,10 +13,14 @@ event = threading.Event()
 contar_sequencias = threading.Event()
 iniciar_programa = threading.Event()
 mg_check = threading.Event()
-
 atualiza_primeiro = threading.Event()
 #atualiza_lucro = threading.Event()
 atualiza_cores = threading.Event()
+
+lock = threading.Lock() #Rlock ou Lock?
+semaphore = threading.Semaphore(12)
+semaphore2 = threading.Semaphore()
+lock2 = threading.RLock()
 
 #PUXANDO EMAIL E SENHA DE ALGUM TXT
 if os.stat("user.txt").st_size == 0:
@@ -81,13 +85,8 @@ stop_gain = 200
 stop_loss = 121
 quantidade_velas = 15
 valor_entrada = 20
-martingale = 1 #2
+martingale = 1
 
-telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale))
-
-
-semaphore = threading.Semaphore(12)
-semaphore2 = threading.Semaphore()
 
 API = IQ_Option(email, senha)
 API.connect()
@@ -178,8 +177,6 @@ print("\t\t$ Robô ativado $\nPares abertos:")
 for k in par_tipo:
 	print(k)
 print("Procurando entrada...")
-
-lock2 = threading.RLock()
 
 #def ultimo_ciclo():
 
@@ -391,7 +388,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 	result = -1
 	while True:
 		#print("Verificando se ainda pode fazer gale ou deu win em alguma operação.")
-		if (gales-3)*-1 > mg or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
+		if gales <= 0 or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
 			print("gales:",(gales-3)*-1,"valor:",valor)
 			break
 
@@ -414,6 +411,9 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 			if ((ciclo == "azul") and (cores_gale == "rgg")) or ((ciclo == "rosa") and (cores_gale == "grr")): #call
 				
 				result = realizar_entrada(par, entr*mult*(gales-3)*-1, "call", op)
+				resultg = str((gales-3)*-1)
+				resultgv = str(result)
+				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
 				#saldo = saldo + valor
 				gales = gales - 1
@@ -440,6 +440,9 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 			elif ((ciclo == "azul") and (cores_gale == "grr")) or ((ciclo == "rosa") and (cores_gale == "rgg")): #put
 				
 				result = realizar_entrada(par, entr*mult*(gales-3)*-1, "put", op)
+				resultg = str((gales-3)*-1)
+				resultgv = str(result)
+				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
 				#saldo += valor
 				gales = gales - 1
@@ -519,7 +522,7 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			
 			direcao = "call"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			
+			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
 			semaphore2.acquire()
@@ -533,9 +536,9 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			lock.release()
 				
 			
-			if valor_temp < 0:
+			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
-				
+				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
 				
@@ -555,7 +558,7 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			
 			direcao = "put"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			
+			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
 			semaphore2.acquire()
@@ -570,10 +573,10 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 
 				
 			
-			if valor_temp < 0:
+			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
 				
-				
+				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
 				
@@ -614,7 +617,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		if (entrar == True) and (proximas_cores == "rgg"):
 			direcao = "put"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			
+			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
 			semaphore2.acquire()
@@ -627,10 +630,10 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			valor_temp = valor
 			lock.release()
 			
-			if valor_temp < 0:
+			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
 				
-				
+				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
 				
@@ -647,7 +650,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		elif (entrar == True) and (proximas_cores == "grr"):
 			direcao = "call"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			
+			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
 			semaphore2.acquire()
@@ -662,10 +665,10 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			lock.release()
 	
 			
-			if valor_temp < 0:
+			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
 				
-				
+				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
 				
@@ -764,7 +767,7 @@ def probabilistico(threadID, par, operacao, lock):
 		semaphore.release()
 
 threads = list()
-lock = threading.Lock() #Rlock ou Lock?
+
 #telegram_bot_sendtext("*\nEntrando com a seguinte configuração:\nEntrada: R$ 20\nStop gain: R$ 500\nStop loss (1 hit): R$ 61 (Mas pode ser até 20 + 40 + 80 = 140...)\n2 gales...\nCiclos 8x2\n*\n")
 for i, k in enumerate(par_tipo):
 	#print("par:",k,"i=",i)
@@ -775,6 +778,8 @@ for i, k in enumerate(par_tipo):
 
 #threadAtt = threading.Thread(, daemon=True)
 #threadAtt.start()
+
+telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale))
 
 for t in threads:
     t.join()
