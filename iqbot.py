@@ -127,51 +127,52 @@ def atualizar_lucro(novo_lucro):
 '''
 
 def stop(gain, loss, valor, par, gales):
-	global wins, losses, lucro
-	lucro += valor
-	#print("Chegou na função stop mas não passou de wait.")
-	event.wait()
-	#print("Chegou na função stop e passou de wait.")
-	if gales == 0:
-		gales = "Sem Gale"
-	event.clear()
-	if valor > 0:
-		wins = wins + 1
-		print("WIN em",par,"/",round(valor,2),"/",round(lucro, 2))
-		#print("WIN:",wins,"x LOSS",losses)
-		winmessage = "Win em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$ " + str(round(lucro, 2))
-		telegram_bot_sendtext(winmessage)
-	elif valor < 0:
-		losses = losses + 1
-		print("LOSS em",par,"/",round(valor,2),"/",round(lucro, 2), end='')
-		#print(" => Martingale:",(mg-2)*-1)
-		#if mg == 2:
-		#	losses = losses + 1
+	global wins, losses, lucro, semaphore2
+	with semaphore2:
+		lucro += valor
+		#print("Chegou na função stop mas não passou de wait.")
+		event.wait()
+		#print("Chegou na função stop e passou de wait.")
+		if gales == 0:
+			gales = "Sem Gale"
+		event.clear()
+		if valor > 0:
+			wins = wins + 1
+			print("WIN em",par,"/",round(valor,2),"/",round(lucro, 2))
 			#print("WIN:",wins,"x LOSS",losses)
-		lossmessage = "Loss em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$ " + str(round(lucro, 2))
-		telegram_bot_sendtext(lossmessage)
-	else:
-		print("Empate em",par,"!")
-		drawmessage = "Empate em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$" + str(round(lucro, 2))
-		telegram_bot_sendtext(drawmessage)
+			winmessage = "Win em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$ " + str(round(lucro, 2))
+			telegram_bot_sendtext(winmessage)
+		elif valor < 0:
+			losses = losses + 1
+			print("LOSS em",par,"/",round(valor,2),"/",round(lucro, 2), end='')
+			#print(" => Martingale:",(mg-2)*-1)
+			#if mg == 2:
+			#	losses = losses + 1
+				#print("WIN:",wins,"x LOSS",losses)
+			lossmessage = "Loss em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$ " + str(round(lucro, 2))
+			telegram_bot_sendtext(lossmessage)
+		else:
+			print("Empate em",par,"!")
+			drawmessage = "Empate em " + par + " - Gale: " + str(gales) + "\n\tWIN " + str(wins) + " x LOSS " + str(losses) + "\nSaldo: R$" + str(round(lucro, 2))
+			telegram_bot_sendtext(drawmessage)
 
-	#telegram = 
+		#telegram = 
 
-	gales = 0
+		gales = 0
 
-	print("\n\nWIN",wins,"x LOSS",losses)
+		print("\n\nWIN",wins,"x LOSS",losses)
 
-	if lucro <= float('-' + str(abs(loss))):
-		print('Stop Loss batido!')
-		telegram_bot_sendtext("Stop LOSS batido!\nPrograma finalizado.")
-		#input("\nAperte <enter> para finalizar.\n")
-		sys.exit()
-		
-	if lucro >= float(abs(gain)):
-		print('Stop Gain Batido!')
-		telegram_bot_sendtext("Stop GAIN (win) batido!\nPrograma finalizado.")
-		#input("\nAperte <enter> para finalizar.\n")
-		sys.exit()
+		if lucro <= float('-' + str(abs(loss))):
+			print('Stop Loss batido!')
+			telegram_bot_sendtext("Stop LOSS batido!\nPrograma finalizado.")
+			#input("\nAperte <enter> para finalizar.\n")
+			sys.exit()
+			
+		if lucro >= float(abs(gain)):
+			print('Stop Gain Batido!')
+			telegram_bot_sendtext("Stop GAIN (win) batido!\nPrograma finalizado.")
+			#input("\nAperte <enter> para finalizar.\n")
+			sys.exit()
 
 # par, tipo, stop_gain, stop_loss, quantidade_velas, valor_entrada, lucro
 os.system('cls' if os.name=='nt' else 'clear')
@@ -183,12 +184,17 @@ print("Procurando entrada...")
 #def ultimo_ciclo():
 
 def realizar_entrada(par, valor_entrada, direcao, operacao):
-	#global lock2
+	global lock2
 	#time.sleep(0.01)
 	#lock2.acquire()
 	valor = 0
+	try:
+		lock2.acquire()
+		status,id = API.buy_digital_spot(par, valor_entrada, direcao, 1) if operacao == 1 else API.buy(valor_entrada, par, direcao, 1)
+		lock2.release()
+	except Exception as e:
+		telegram_bot_sendtext("Não consegui entrar em " + par)
 	
-	status,id = API.buy_digital_spot(par, valor_entrada, direcao, 1) if operacao == 1 else API.buy(valor_entrada, par, direcao, 1)
 	if status:
 		while True:
 			#time.sleep(0.01)
@@ -339,6 +345,7 @@ def puxa_sequencia(quantidade_velas, par, lock, cores):
 
 def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_ciclo):#, lock):
 	#print("\n- Buscando oportunidade para martingale no par",par,"\n")
+	global lock2
 	mg_check.wait()
 	mg_check.clear()
 	#print("Passou da checagem...")
@@ -398,8 +405,9 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 		if (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo != novo_primeiro):
 			print("Martingale =>",gales,":",par)
 			if ((ciclo == "azul") and (cores_gale == "rgg")) or ((ciclo == "rosa") and (cores_gale == "grr")): #call
-				
+				#lock2.acquire() - Testando. Descomentar em caso de erro
 				result = realizar_entrada(par, entr*mult*gales, "call", op)
+				#lock2.release()
 				resultg = str(gales)
 				resultgv = str(result)
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
@@ -427,8 +435,9 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 				print("Sequencia depois de dar um call:",cores)
 
 			elif ((ciclo == "azul") and (cores_gale == "grr")) or ((ciclo == "rosa") and (cores_gale == "rgg")): #put
-				
+				#lock2.acquire() - Testando. Descomentar em caso de erro
 				result = realizar_entrada(par, entr*mult*gales, "put", op)
+				#lock2.release()
 				resultg = str(gales)
 				resultgv = str(result)
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
@@ -514,10 +523,10 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			lock2.acquire()
+			
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			
+			lock2.acquire()
 			valor_temp = valor
 			lock2.release()
 				
@@ -547,10 +556,10 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			lock2.acquire()
+			
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			
+			lock2.acquire()
 			valor_temp = valor
 			lock2.release()
 
@@ -603,10 +612,10 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			lock2.acquire()
+			
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			
+			lock2.acquire()
 			valor_temp = valor
 			lock2.release()
 			
@@ -633,10 +642,10 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			lock2.acquire()
+			
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			
+			lock2.acquire()
 			valor_temp = valor
 			lock2.release()
 	
