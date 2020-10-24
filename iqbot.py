@@ -86,7 +86,7 @@ stop_loss = 99999
 quantidade_velas = 30
 valor_entrada = 50
 martingale = 2
-estrategia = 3 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+estrategia = 1 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
 
 
 API = IQ_Option(email, senha)
@@ -331,6 +331,18 @@ def puxa_sequencia(quantidade_velas, par, lock, cores):
 			#print("fechando")
 			break
 			#print("Primeira sequencia foi rosa")
+		elif primeiro_rosa == -1 and primeiro_azul != -1:
+			primeira_sequencia = "azul"
+			#print("A:",primeiro_ciclo_a)
+			primeiro_ciclo = primeiro_ciclo_a
+			#print("fechando")
+			break
+		elif primeiro_azul == -1 and primeiro_rosa != -1:
+			primeira_sequencia = "rosa"
+			#print("R:",primeiro_ciclo_r)
+			primeiro_ciclo = primeiro_ciclo_r
+			#print("fechando")
+			break
 		else:
 			primeira_sequencia=""
 			primeiro_ciclo = ""
