@@ -83,7 +83,7 @@ def telegram_bot_sendtext(bot_message):
 
 stop_gain = 200
 stop_loss = 121
-quantidade_velas = 15
+quantidade_velas = 30
 valor_entrada = 20
 martingale = 1
 
@@ -231,21 +231,8 @@ def puxa_sequencia(quantidade_velas, par, lock, cores):
 			velas[i] = 'g' if velas[i]['open'] < velas[i]['close'] else 'r' if velas[i]['open'] > velas[i]['close'] else 'd'
 			cores += velas[i]
 
-		#if cores[quantidade_velas-3:-1] == "grr" or cores[quantidade_velas-3:-1] == "rgg":
-			#print("A função foi cancelada em",par,"pois há um ciclo se fechando.")
-			#semaphore.release()
-			#continue
-		#time.sleep(0.01)
-		#lock.acquire()
-		#semaphore2.acquire()
-		
-
 		cores_fatiado = (cores[0:quantidade_velas])
 		
-		#semaphore2.release()
-		#lock.release()
-		
-		#cores_invertidas = cores_fatiado[::-1]
 		
 		contar_sequencias.wait()
 		lock.acquire()
@@ -277,7 +264,7 @@ def puxa_sequencia(quantidade_velas, par, lock, cores):
 			continue
 		
 
-		#print(par, "stucked in here")
+		#print(par, "stucked in here2")
 
 		encontra_azul = cores_fatiado.find('rggg') 
 		#print(encontra_azul,"- rggg")
@@ -525,12 +512,8 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			semaphore2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
-
 			
-			semaphore2.release()
-			time.sleep(0.01)
 			lock.acquire()
 			valor_temp = valor
 			lock.release()
@@ -561,12 +544,8 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			semaphore2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
-
 			
-			semaphore2.release()
-			time.sleep(0.01)
 			lock.acquire()
 			valor_temp = valor
 			lock.release()
@@ -620,12 +599,8 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			semaphore2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
-
 			
-			semaphore2.release()
-			time.sleep(0.01)
 			lock.acquire()
 			valor_temp = valor
 			lock.release()
@@ -653,13 +628,8 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
-			semaphore2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
-
 			
-			
-			semaphore2.release()
-			time.sleep(0.01)
 			lock.acquire()
 			valor_temp = valor
 			lock.release()
@@ -745,7 +715,7 @@ def probabilistico(threadID, par, operacao, lock):
 			 #Se cair aqui é pq está havendo uma decisão de novo ciclo. Que poderia mudar as sequências
 		
 		#print(threadID)
-		if azul/(azul+rosa) <= 0.2 and (azul+rosa) >= 10 and primeira_sequencia == "rosa":
+		if azul/(azul+rosa) <= 0.4 and (azul+rosa) >= 10 and primeira_sequencia == "rosa":
 			#print(threadID, "rosa")
 
 			#time.sleep(0.01)
@@ -754,7 +724,7 @@ def probabilistico(threadID, par, operacao, lock):
 			aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo)
 			#lock.release()
 			
-		elif rosa/(azul+rosa) <= 0.2 and (azul+rosa) >= 10 and primeira_sequencia == "azul":
+		elif rosa/(azul+rosa) <= 0.4 and (azul+rosa) >= 10 and primeira_sequencia == "azul":
 			#logging.info("Encontrou entrada...")
 			#print(threadID, "azul")
 			#time.sleep(0.01)
