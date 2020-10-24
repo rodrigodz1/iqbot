@@ -81,12 +81,12 @@ def telegram_bot_sendtext(bot_message):
 
     return response.json()
 
-stop_gain = 200
-stop_loss = 121
+stop_gain = 99999
+stop_loss = 99999
 quantidade_velas = 30
-valor_entrada = 20
-martingale = 1
-estrategia = 4 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+valor_entrada = 50
+martingale = 2
+estrategia = 3 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
 
 
 API = IQ_Option(email, senha)
@@ -349,7 +349,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 	mg_check.wait()
 	mg_check.clear()
 	#print("Passou da checagem...")
-	gales = mg
+	gales = 1
 	entr = entrada
 	#saldo = entrada * -1
 	print("Sequencia1:",cores)
@@ -384,7 +384,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 	result = -1
 	while True:
 		#print("Verificando se ainda pode fazer gale ou deu win em alguma operação.")
-		if gales <= 0 or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
+		if gales > mg or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
 			print("gales:",(gales-3)*-1,"valor:",valor)
 			break
 
@@ -413,7 +413,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
 				#saldo = saldo + valor
-				gales = gales - 1
+				gales = gales + 1
 
 				for i in range(len(ls)):
 					if ls[i] in cores and i == 0:
@@ -443,7 +443,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
 				#saldo += valor
-				gales = gales - 1
+				gales = gales + 1
 
 				for i in range(len(ls)):
 					if ls[i] in cores and i == 0:
@@ -492,7 +492,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 			time.sleep(2)
 
 	saldo = valor - entrada
-	return saldo, gales+1
+	return saldo, gales-1
 
 def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo):
 	print("\n\n* Possível entrada em",par,"a favor do ciclo azul, encontrada...\n\n")
