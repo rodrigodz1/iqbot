@@ -86,6 +86,7 @@ stop_loss = 121
 quantidade_velas = 30
 valor_entrada = 20
 martingale = 1
+estrategia = 4 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
 
 
 API = IQ_Option(email, senha)
@@ -171,6 +172,7 @@ def stop(gain, loss, valor, par, gales):
 		telegram_bot_sendtext("Stop GAIN (win) batido!\nPrograma finalizado.")
 		#input("\nAperte <enter> para finalizar.\n")
 		sys.exit()
+
 # par, tipo, stop_gain, stop_loss, quantidade_velas, valor_entrada, lucro
 os.system('cls' if os.name=='nt' else 'clear')
 print("\t\t$ Robô ativado $\nPares abertos:")
@@ -394,11 +396,11 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 			cores_gale += velas_gale[i]
 
 		if (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo != novo_primeiro):
-			print("Martingale =>",(gales-3)*-1,":",par)
+			print("Martingale =>",gales,":",par)
 			if ((ciclo == "azul") and (cores_gale == "rgg")) or ((ciclo == "rosa") and (cores_gale == "grr")): #call
 				
-				result = realizar_entrada(par, entr*mult*(gales-3)*-1, "call", op)
-				resultg = str((gales-3)*-1)
+				result = realizar_entrada(par, entr*mult*gales, "call", op)
+				resultg = str(gales)
 				resultgv = str(result)
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
@@ -426,8 +428,8 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 
 			elif ((ciclo == "azul") and (cores_gale == "grr")) or ((ciclo == "rosa") and (cores_gale == "rgg")): #put
 				
-				result = realizar_entrada(par, entr*mult*(gales-3)*-1, "put", op)
-				resultg = str((gales-3)*-1)
+				result = realizar_entrada(par, entr*mult*gales, "put", op)
+				resultg = str(gales)
 				resultgv = str(result)
 				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
 				valor = valor + result
@@ -481,7 +483,7 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 			time.sleep(2)
 
 	saldo = valor - entrada
-	return saldo, (gales-3)*-1
+	return saldo, gales+1
 
 def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo):
 	print("\n\n* Possível entrada em",par,"a favor do ciclo azul, encontrada...\n\n")
@@ -512,11 +514,12 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
+			lock2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			lock.acquire()
+			
 			valor_temp = valor
-			lock.release()
+			lock2.release()
 				
 			
 			if valor_temp < 0 and martingale > 0:
@@ -527,7 +530,7 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				
 				event.set()
-				stop(stop_gain, stop_loss, mgr, par, gales-1) #stop_gain, stop_loss, valor_temp, martingale, par
+				stop(stop_gain, stop_loss, mgr, par, gales) #stop_gain, stop_loss, valor_temp, martingale, par
 				
 				break
 			else:
@@ -544,11 +547,12 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
+			lock2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			lock.acquire()
+			
 			valor_temp = valor
-			lock.release()
+			lock2.release()
 
 				
 			
@@ -561,7 +565,7 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				
 				event.set()
-				stop(stop_gain, stop_loss, mgr, par, gales-1) #stop_gain, stop_loss, valor_temp, martingale, par
+				stop(stop_gain, stop_loss, mgr, par, gales) #stop_gain, stop_loss, valor_temp, martingale, par
 				
 				break
 			else:
@@ -599,11 +603,12 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
+			lock2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			lock.acquire()
+			
 			valor_temp = valor
-			lock.release()
+			lock2.release()
 			
 			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
@@ -613,7 +618,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
 				
 				event.set()
-				stop(stop_gain, stop_loss, mgr, par, gales-1) #stop_gain, stop_loss, valor_temp, martingale, par
+				stop(stop_gain, stop_loss, mgr, par, gales) #stop_gain, stop_loss, valor_temp, martingale, par
 				
 				break
 			else:
@@ -628,11 +633,12 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
 			time.sleep(0.01)
+			lock2.acquire()
 			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
 			
-			lock.acquire()
+			
 			valor_temp = valor
-			lock.release()
+			lock2.release()
 	
 			
 			if valor_temp < 0 and martingale > 0:
@@ -644,7 +650,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				
 				event.set()
-				stop(stop_gain, stop_loss, mgr, par, gales-1) #stop_gain, stop_loss, valor_temp, martingale, par
+				stop(stop_gain, stop_loss, mgr, par, gales) #stop_gain, stop_loss, valor_temp, martingale, par
 				
 				break
 			else:
@@ -654,7 +660,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			break
 
 def probabilistico(threadID, par, operacao, lock):
-	global stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale
+	global stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, estrategia
 
 	#stop_gain = 50
 	#stop_loss = 21
@@ -715,7 +721,7 @@ def probabilistico(threadID, par, operacao, lock):
 			 #Se cair aqui é pq está havendo uma decisão de novo ciclo. Que poderia mudar as sequências
 		
 		#print(threadID)
-		if azul/(azul+rosa) <= 0.4 and (azul+rosa) >= 10 and primeira_sequencia == "rosa":
+		if azul/(azul+rosa) <= estrategia/10 and (azul+rosa) >= 10 and primeira_sequencia == "rosa":
 			#print(threadID, "rosa")
 
 			#time.sleep(0.01)
@@ -724,7 +730,7 @@ def probabilistico(threadID, par, operacao, lock):
 			aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo)
 			#lock.release()
 			
-		elif rosa/(azul+rosa) <= 0.4 and (azul+rosa) >= 10 and primeira_sequencia == "azul":
+		elif rosa/(azul+rosa) <= estrategia/10 and (azul+rosa) >= 10 and primeira_sequencia == "azul":
 			#logging.info("Encontrou entrada...")
 			#print(threadID, "azul")
 			#time.sleep(0.01)
@@ -749,7 +755,7 @@ for i, k in enumerate(par_tipo):
 #threadAtt = threading.Thread(, daemon=True)
 #threadAtt.start()
 
-telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale))
+telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale) + "\nCiclos: " + str((estrategia-10)*-1) + "x" + str(estrategia))
 
 for t in threads:
     t.join()
