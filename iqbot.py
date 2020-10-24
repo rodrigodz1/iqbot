@@ -3,8 +3,6 @@ from datetime import datetime
 import time
 import threading
 import os, getpass, sys
-import collections
-import tkinter as tk
 import logging
 import requests
 
@@ -81,12 +79,14 @@ def telegram_bot_sendtext(bot_message):
 
     return response.json()
 
-stop_gain = 99999
-stop_loss = 99999
-quantidade_velas = 30
-valor_entrada = 50
-martingale = 2
-estrategia = 1 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+stop_gain = 50
+stop_loss = 61
+quantidade_velas = 15
+valor_entrada = 20
+martingale = 1
+estrategia = 3 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+
+interruptor = 0
 
 
 API = IQ_Option(email, senha)
@@ -127,7 +127,7 @@ def atualizar_lucro(novo_lucro):
 '''
 
 def stop(gain, loss, valor, par, gales):
-	global wins, losses, lucro, semaphore2
+	global wins, losses, lucro, semaphore2, interruptor
 	with semaphore2:
 		lucro += valor
 		#print("Chegou na função stop mas não passou de wait.")
@@ -164,19 +164,21 @@ def stop(gain, loss, valor, par, gales):
 
 		if lucro <= float('-' + str(abs(loss))):
 			print('Stop Loss batido!')
+			interruptor = 1
 			telegram_bot_sendtext("Stop LOSS batido!\nPrograma finalizado.")
 			#input("\nAperte <enter> para finalizar.\n")
 			sys.exit()
 			
 		if lucro >= float(abs(gain)):
 			print('Stop Gain Batido!')
+			interruptor = 1
 			telegram_bot_sendtext("Stop GAIN (win) batido!\nPrograma finalizado.")
 			#input("\nAperte <enter> para finalizar.\n")
 			sys.exit()
 
 # par, tipo, stop_gain, stop_loss, quantidade_velas, valor_entrada, lucro
 os.system('cls' if os.name=='nt' else 'clear')
-print("\t\t$ Robô ativado $\nPares abertos:")
+print("\t\t$ Robô Probabilístico Ativado $\nPares abertos:")
 for k in par_tipo:
 	print(k)
 print("Procurando entrada...")
@@ -357,153 +359,158 @@ def puxa_sequencia(quantidade_velas, par, lock, cores):
 
 def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_ciclo):#, lock):
 	#print("\n- Buscando oportunidade para martingale no par",par,"\n")
-	global lock2
-	mg_check.wait()
-	mg_check.clear()
-	#print("Passou da checagem...")
-	gales = 1
-	entr = entrada
-	#saldo = entrada * -1
-	print("Sequencia1:",cores)
-	valor = 0
-	pos = cores.find(primeiro_ciclo) + 1 #ok!!!!!!!
-	#print("full:",cores)
-	cores = cores[pos:]
-	print("Sequencia1corte:",cores) #show
+	global lock2, semaphore2
+	with semaphore2:
+		mg_check.wait()
+		mg_check.clear()
+		#print("Passou da checagem...")
+		gales = 1
+		entr = entrada
+		#saldo = entrada * -1
+		print("Sequencia1:",cores)
+		valor = 0
+		pos = cores.find(primeiro_ciclo) + 1 #ok!!!!!!!
+		#print("full:",cores)
+		cores = cores[pos:]
+		print("Sequencia1corte:",cores) #show
 
-	ls = ("grrr", "rggg", "grrg", "rggr")
+		ls = ("grrr", "rggg", "grrg", "rggr")
 
-	novo_primeiro = ""
-	for i in range(len(ls)):
-		if ls[i] in cores and i == 0:
-			novo_primeiro = ls[i]
-		elif i > 0 and ls[i] in cores:
-			if cores.find(ls[i]) < cores.find(novo_primeiro):
+		novo_primeiro = ""
+		for i in range(len(ls)):
+			if ls[i] in cores and i == 0:
 				novo_primeiro = ls[i]
-
-	pos = cores.find(novo_primeiro) + 1 #antes do if. OK!
-	
-	if novo_primeiro == "grrr" or novo_primeiro == "rggg":
-		novo_primeiro = "azul"
-	elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
-		novo_primeiro = "rosa" 
-
-	print(novo_primeiro)
-
-	
-	cores = cores[pos:]
-	print("Sequencia corte antes do while:",cores)
-	result = -1
-	while True:
-		#print("Verificando se ainda pode fazer gale ou deu win em alguma operação.")
-		if gales > mg or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
-			print("gales:",(gales-3)*-1,"valor:",valor)
-			break
-
-		seconds = float(((datetime.now()).strftime('%S'))[:])
-
-		timing = True if seconds >= 58 and seconds <= 59 else False
-
-		lock.acquire() #talvez sim talvez nao
-		velas_gale = API.get_candles(par, 60, 3, time.time())
-		lock.release()
-
-		cores_gale=""
-		
-		for i in range(3):
-			velas_gale[i] = 'g' if velas_gale[i]['open'] < velas_gale[i]['close'] else 'r' if velas_gale[i]['open'] > velas_gale[i]['close'] else 'd'
-			cores_gale += velas_gale[i]
-
-		if (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo != novo_primeiro):
-			print("Martingale =>",gales,":",par)
-			if ((ciclo == "azul") and (cores_gale == "rgg")) or ((ciclo == "rosa") and (cores_gale == "grr")): #call
-				#lock2.acquire() - Testando. Descomentar em caso de erro
-				result = realizar_entrada(par, entr*mult*gales, "call", op)
-				#lock2.release()
-				resultg = str(gales)
-				resultgv = str(result)
-				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
-				valor = valor + result
-				#saldo = saldo + valor
-				gales = gales + 1
-
-				for i in range(len(ls)):
-					if ls[i] in cores and i == 0:
-						novo_primeiro = ls[i]
-					elif i > 0 and ls[i] in cores:
-						if cores.find(ls[i]) < cores.find(novo_primeiro):
-							novo_primeiro = ls[i]
-
-				pos = cores.find(novo_primeiro) + 1
-	
-				if novo_primeiro == "grrr" or novo_primeiro == "rggg":
-					novo_primeiro = "azul"
-				elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
-					novo_primeiro = "rosa" 
-
-				
-
-				cores = cores[pos:]
-				print("Sequencia depois de dar um call:",cores)
-
-			elif ((ciclo == "azul") and (cores_gale == "grr")) or ((ciclo == "rosa") and (cores_gale == "rgg")): #put
-				#lock2.acquire() - Testando. Descomentar em caso de erro
-				result = realizar_entrada(par, entr*mult*gales, "put", op)
-				#lock2.release()
-				resultg = str(gales)
-				resultgv = str(result)
-				telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
-				valor = valor + result
-				#saldo += valor
-				gales = gales + 1
-
-				for i in range(len(ls)):
-					if ls[i] in cores and i == 0:
-						novo_primeiro = ls[i]
-					elif i > 0 and ls[i] in cores:
-						if cores.find(ls[i]) < cores.find(novo_primeiro):
-							novo_primeiro = ls[i]
-
-				pos = cores.find(novo_primeiro) + 1
-	
-				if novo_primeiro == "grrr" or novo_primeiro == "rggg":
-					novo_primeiro = "azul"
-				elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
-					novo_primeiro = "rosa" 
-
-				print("Ciclo novo:",novo_primeiro)
-
-				
-
-				cores = cores[pos:]
-
-				print("Sequencia depois de dar um put:",cores)
-
-		elif (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo == novo_primeiro):
-			print("\nPrimeiro ciclo precisa ser atualizado...\n")
-			
-			for i in range(len(ls)):
-				if ls[i] in cores and i == 0:
+			elif i > 0 and ls[i] in cores:
+				if cores.find(ls[i]) < cores.find(novo_primeiro):
 					novo_primeiro = ls[i]
-				elif i > 0 and ls[i] in cores:
-					if cores.find(ls[i]) < cores.find(novo_primeiro):
-						novo_primeiro = ls[i]
 
-			pos = cores.find(novo_primeiro) + 1
-	
-			if novo_primeiro == "grrr" or novo_primeiro == "rggg":
-				novo_primeiro = "azul"
-			elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
-				novo_primeiro = "rosa" 
+		pos = cores.find(novo_primeiro) + 1 #antes do if. OK!
+		
+		if novo_primeiro == "grrr" or novo_primeiro == "rggg":
+			novo_primeiro = "azul"
+		elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
+			novo_primeiro = "rosa" 
 
-			print("Novo ciclo:",novo_primeiro)
+		print(novo_primeiro)
+
+		
+		cores = cores[pos:]
+		print("Sequencia corte antes do while:",cores)
+		result = -1
+		while True:
+			#print("Verificando se ainda pode fazer gale ou deu win em alguma operação.")
+			if gales > mg or result >= 0: #caso valor >= 0, significa que para no Doji (resultado = 0)
+				print("gales:",(gales-3)*-1,"valor:",valor)
+				break
+
 			
 
-			cores = cores[pos:]
-			print("Sequencia depois de ser a primeira=entrada:",cores)
-			time.sleep(2)
+			lock.acquire() #talvez sim talvez nao
+			velas_gale = API.get_candles(par, 60, 3, time.time())
+			lock.release()
 
-	saldo = valor - entrada
+			cores_gale=""
+			
+			for i in range(3):
+				velas_gale[i] = 'g' if velas_gale[i]['open'] < velas_gale[i]['close'] else 'r' if velas_gale[i]['open'] > velas_gale[i]['close'] else 'd'
+				cores_gale += velas_gale[i]
+
+			seconds = float(((datetime.now()).strftime('%S'))[:])
+
+			timing = True if seconds >= 58 and seconds <= 59 else False
+
+			if (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo != novo_primeiro):
+				print("Martingale =>",gales,":",par)
+				if ((ciclo == "azul") and (cores_gale == "rgg")) or ((ciclo == "rosa") and (cores_gale == "grr")): #call
+					#lock2.acquire() - Testando. Descomentar em caso de erro
+					telegram_bot_sendtext("Realizando Gale " + str(gales) + " em " + par)
+					result = realizar_entrada(par, entr*mult*gales, "call", op)
+					#lock2.release()
+					resultg = str(gales)
+					resultgv = str(result)
+					telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
+					valor = valor + result
+					#saldo = saldo + valor
+					gales = gales + 1
+
+					for i in range(len(ls)):
+						if ls[i] in cores and i == 0:
+							novo_primeiro = ls[i]
+						elif i > 0 and ls[i] in cores:
+							if cores.find(ls[i]) < cores.find(novo_primeiro):
+								novo_primeiro = ls[i]
+
+					pos = cores.find(novo_primeiro) + 1
+		
+					if novo_primeiro == "grrr" or novo_primeiro == "rggg":
+						novo_primeiro = "azul"
+					elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
+						novo_primeiro = "rosa" 
+
+					
+
+					cores = cores[pos:]
+					print("Sequencia depois de dar um call:",cores)
+
+				elif ((ciclo == "azul") and (cores_gale == "grr")) or ((ciclo == "rosa") and (cores_gale == "rgg")): #put
+					#lock2.acquire() - Testando. Descomentar em caso de erro
+					telegram_bot_sendtext("Realizando Gale " + str(gales) + " em " + par)
+					result = realizar_entrada(par, entr*mult*gales, "put", op)
+					#lock2.release()
+					resultg = str(gales)
+					resultgv = str(result)
+					telegram_bot_sendtext("Resultado do Gale " + resultg + " em " + par + ": " + resultgv)
+					valor = valor + result
+					#saldo += valor
+					gales = gales + 1
+
+					for i in range(len(ls)):
+						if ls[i] in cores and i == 0:
+							novo_primeiro = ls[i]
+						elif i > 0 and ls[i] in cores:
+							if cores.find(ls[i]) < cores.find(novo_primeiro):
+								novo_primeiro = ls[i]
+
+					pos = cores.find(novo_primeiro) + 1
+		
+					if novo_primeiro == "grrr" or novo_primeiro == "rggg":
+						novo_primeiro = "azul"
+					elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
+						novo_primeiro = "rosa" 
+
+					print("Ciclo novo:",novo_primeiro)
+
+					
+
+					cores = cores[pos:]
+
+					print("Sequencia depois de dar um put:",cores)
+
+			elif (timing == True) and (cores_gale == "rgg" or cores_gale == "grr") and (ciclo == novo_primeiro):
+				print("\nPrimeiro ciclo precisa ser atualizado...\n")
+				
+				for i in range(len(ls)):
+					if ls[i] in cores and i == 0:
+						novo_primeiro = ls[i]
+					elif i > 0 and ls[i] in cores:
+						if cores.find(ls[i]) < cores.find(novo_primeiro):
+							novo_primeiro = ls[i]
+
+				pos = cores.find(novo_primeiro) + 1
+		
+				if novo_primeiro == "grrr" or novo_primeiro == "rggg":
+					novo_primeiro = "azul"
+				elif novo_primeiro == "grrg" or novo_primeiro == "rggr":
+					novo_primeiro = "rosa" 
+
+				print("Novo ciclo:",novo_primeiro)
+				
+
+				cores = cores[pos:]
+				print("Sequencia depois de ser a primeira=entrada:",cores)
+				time.sleep(2)
+
+		saldo = valor - entrada
 	return saldo, gales-1
 
 def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo):
@@ -512,6 +519,11 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 	aposta = "azul"
 	global lock2
 	while True:
+		lock.acquire()
+		if interruptor == 1:
+			telegram_bot_sendtext("Stop batido, fechando " + par)
+			sys.exit()
+		lock.release()
 		
 		lock.acquire()
 		proximas_velas = API.get_candles(par, 60, 2+1, time.time())
@@ -595,6 +607,8 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			#lock.release()
 			break
 def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo):
+
+		
 	print("\n\n* Possível entrada em",par,"a favor do ciclo rosa, encontrada...\n\n")
 	entr = valor_entrada
 	gales = 0
@@ -602,6 +616,11 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 	valor_temp = 0
 	global lock2
 	while True:
+		lock.acquire()
+		if interruptor == 1:
+			telegram_bot_sendtext("Stop batido, fechando " + par)
+			sys.exit()
+		lock.release()
 		
 		#time.sleep(0.01)
 		lock.acquire()
@@ -740,7 +759,11 @@ def probabilistico(threadID, par, operacao, lock):
 			
 			#print(str(e))
 			 #Se cair aqui é pq está havendo uma decisão de novo ciclo. Que poderia mudar as sequências
-		
+		lock.acquire()
+		if interruptor == 1:
+			telegram_bot_sendtext("Stop batido, fechando " + par)
+			sys.exit()
+		lock.release()
 		#print(threadID)
 		if azul/(azul+rosa) <= estrategia/10 and (azul+rosa) >= 10 and primeira_sequencia == "rosa":
 			#print(threadID, "rosa")
