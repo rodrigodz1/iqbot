@@ -6,13 +6,11 @@ import os, getpass, sys
 import logging
 import requests
 
-#same as bot8.py
 event = threading.Event()
 contar_sequencias = threading.Event()
 iniciar_programa = threading.Event()
 mg_check = threading.Event()
 atualiza_primeiro = threading.Event()
-#atualiza_lucro = threading.Event()
 atualiza_cores = threading.Event()
 
 lock = threading.Lock() #Rlock ou Lock?
@@ -79,12 +77,15 @@ def telegram_bot_sendtext(bot_message):
 
     return response.json()
 
-stop_gain = 50
-stop_loss = 61
+stop_gain = 99999
+stop_loss = 99999
 quantidade_velas = 15
 valor_entrada = 20
 martingale = 1
-estrategia = 3 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+estrategia = 2 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
+soros = 0
+soros_level = 3
+soros_valor = 0
 
 interruptor = 0
 
@@ -517,7 +518,8 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 	print("\n\n* Possível entrada em",par,"a favor do ciclo azul, encontrada...\n\n")
 	gales = 0
 	aposta = "azul"
-	global lock2
+	entr = valor_entrada
+	global lock2, soros, soros_level, soros_valor
 	while True:
 		lock.acquire()
 		if interruptor == 1:
@@ -544,18 +546,27 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			
 			direcao = "call"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			telegram_bot_sendtext("Realizando entrada em " + par)
+			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
-			time.sleep(0.01)
-			
-			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
+			if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+			else:
+				entr = valor_entrada
+				soros = 0
+			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
+			valor = realizar_entrada(par, entr, direcao, operacao)
 			
 			lock2.acquire()
 			valor_temp = valor
+			soros_valor = valor_temp
 			lock2.release()
 				
 			
 			if valor_temp < 0 and martingale > 0:
+				lock.acquire()
+				soros = 0
+				soros_valor = 0
+				lock.release()
 				#print("Precisa de gale...")
 				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
@@ -567,6 +578,9 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				break
 			else:
+				lock.acquire()
+				soros = soros + 1
+				lock.release()
 				event.set()
 				stop(stop_gain, stop_loss, valor_temp, par, 0)
 			#lock.release()
@@ -577,21 +591,29 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			
 			direcao = "put"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			telegram_bot_sendtext("Realizando entrada em " + par)
+			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
-			time.sleep(0.01)
-			
-			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
+			if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+			else:
+				entr = valor_entrada
+				soros = 0
+			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
+			valor = realizar_entrada(par, entr, direcao, operacao)
 			
 			lock2.acquire()
 			valor_temp = valor
+			soros_valor = valor_temp
 			lock2.release()
 
 				
 			
 			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
-				
+				lock.acquire()
+				soros = 0
+				soros_valor = 0
+				lock.release()
 				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
@@ -602,6 +624,9 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				break
 			else:
+				lock.acquire()
+				soros = soros + 1
+				lock.release()
 				event.set()
 				stop(stop_gain, stop_loss, valor_temp, par, 0)
 			#lock.release()
@@ -614,7 +639,7 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 	gales = 0
 	aposta = "rosa"
 	valor_temp = 0
-	global lock2
+	global lock2, soros, soros_level, soros_valor
 	while True:
 		lock.acquire()
 		if interruptor == 1:
@@ -640,19 +665,27 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		if (entrar == True) and (proximas_cores == "rgg"):
 			direcao = "put"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			telegram_bot_sendtext("Realizando entrada em " + par)
+			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
-			time.sleep(0.01)
-			
-			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
+			if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+			else:
+				entr = valor_entrada
+				soros = 0
+			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
+			valor = realizar_entrada(par, entr, direcao, operacao)
 			
 			lock2.acquire()
 			valor_temp = valor
+			soros_valor = valor_temp
 			lock2.release()
 			
 			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
-				
+				lock.acquire()
+				soros = 0
+				soros_valor = 0
+				lock.release()
 				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
@@ -662,6 +695,9 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				break
 			else:
+				lock.acquire()
+				soros = soros + 1
+				lock.release()
 				event.set()
 				stop(stop_gain, stop_loss, valor_temp, par, 0)
 			#lock.release()
@@ -670,20 +706,28 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		elif (entrar == True) and (proximas_cores == "grr"):
 			direcao = "call"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
-			telegram_bot_sendtext("Realizando entrada em " + par)
-			#lock.acquire()
-			time.sleep(0.01)
 			
-			valor = realizar_entrada(par, valor_entrada, direcao, operacao)
+			#lock.acquire()
+			if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+			else:
+				entr = valor_entrada
+				soros = 0
+			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
+			valor = realizar_entrada(par, entr, direcao, operacao)
 			
 			lock2.acquire()
 			valor_temp = valor
+			soros_valor = valor_temp
 			lock2.release()
 	
 			
 			if valor_temp < 0 and martingale > 0:
 				#print("Precisa de gale...")
-				
+				lock.acquire()
+				soros = 0
+				soros_valor = 0
+				lock.release()
 				telegram_bot_sendtext("A entrada em " + par + " deu loss. Procurando Gale 1.")
 				mg_check.set()
 				mgr, gales = Martingale(martingale, 2, valor_entrada, aposta, par, operacao, lock, cores, primeira_sequencia, primeiro_ciclo) #2 = multiplicador do gale
@@ -694,6 +738,9 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 				
 				break
 			else:
+				lock.acquire()
+				soros = soros + 1
+				lock.release()
 				event.set()
 				stop(stop_gain, stop_loss, valor_temp, par, 0)
 			#lock.release()
@@ -799,7 +846,7 @@ for i, k in enumerate(par_tipo):
 #threadAtt = threading.Thread(, daemon=True)
 #threadAtt.start()
 
-telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale) + "\nCiclos: " + str((estrategia-10)*-1) + "x" + str(estrategia))
+telegram_bot_sendtext("$ Robô Iniciado $\nEntrada: R$ " + str(valor_entrada) + "\nStop gain: R$ " + str(stop_gain) + "\nStop loss: R$ " + str(stop_loss) + "\nGales: " + str(martingale) + "\nCiclos: " + str((estrategia-10)*-1) + "x" + str(estrategia) + "\nSoros Nv.: " + str(soros_level))
 
 for t in threads:
     t.join()
