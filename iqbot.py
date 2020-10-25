@@ -77,16 +77,16 @@ def telegram_bot_sendtext(bot_message):
 
     return response.json()
 
-stop_gain = 99999
-stop_loss = 99999
-quantidade_velas = 15
-valor_entrada = 20
-martingale = 1
+stop_gain = 8
+stop_loss = 8
+quantidade_velas = 20
+valor_entrada = 2
+martingale = 0
 estrategia = 2 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
-soros = 0
-soros_level = 3
-soros_valor = 0
+soros_level = 2
 
+soros = 0
+soros_valor = 0
 interruptor = 0
 
 
@@ -541,18 +541,19 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		segundos = float(((datetime.now()).strftime('%S'))[:])
 		entrar = True if segundos >= 58 and segundos <= 59 else False#>= 58 and segundos <= 59 else False
 		
-		
+		if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+		else:
+			entr = valor_entrada
+			soros = 0
+
 		if (entrar == True) and (proximas_cores == "rgg"):
 			
 			direcao = "call"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
 			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
-			if soros > 0 and soros <= soros_level:
-				entr = valor_entrada + soros_valor
-			else:
-				entr = valor_entrada
-				soros = 0
+			
 			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
 			valor = realizar_entrada(par, entr, direcao, operacao)
 			
@@ -593,11 +594,13 @@ def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
 			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
+			'''
 			if soros > 0 and soros <= soros_level:
 				entr = valor_entrada + soros_valor
 			else:
 				entr = valor_entrada
 				soros = 0
+			'''
 			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
 			valor = realizar_entrada(par, entr, direcao, operacao)
 			
@@ -661,17 +664,18 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 		segundos = float(((datetime.now()).strftime('%S'))[:])
 		entrar = True if segundos >= 58 and segundos <= 59 else False#>= 58 and segundos <= 59 else False
 		
+		if soros > 0 and soros <= soros_level:
+				entr = valor_entrada + soros_valor
+		else:
+			entr = valor_entrada
+			soros = 0
 		
 		if (entrar == True) and (proximas_cores == "rgg"):
 			direcao = "put"
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
 			#telegram_bot_sendtext("Realizando entrada em " + par)
 			#lock.acquire()
-			if soros > 0 and soros <= soros_level:
-				entr = valor_entrada + soros_valor
-			else:
-				entr = valor_entrada
-				soros = 0
+			
 			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
 			valor = realizar_entrada(par, entr, direcao, operacao)
 			
@@ -708,11 +712,13 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 			print("--- Entrando em",par,":",aposta.upper(),"---\nCiclos Azuis:",azul,"\nCiclos Rosas:",rosa,"\nPrimeira Sequência:",primeira_sequencia,"\nCiclo:",primeiro_ciclo)
 			
 			#lock.acquire()
+			'''
 			if soros > 0 and soros <= soros_level:
 				entr = valor_entrada + soros_valor
 			else:
 				entr = valor_entrada
 				soros = 0
+			'''
 			telegram_bot_sendtext("Realizando entrada em " + par + ". Soros atual: " + str(soros))
 			valor = realizar_entrada(par, entr, direcao, operacao)
 			
