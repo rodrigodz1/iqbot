@@ -77,13 +77,13 @@ def telegram_bot_sendtext(bot_message):
 
     return response.json()
 
-stop_gain = 8
-stop_loss = 8
+stop_gain = 9999
+stop_loss = 9999
 quantidade_velas = 20
-valor_entrada = 2
+valor_entrada = 20
 martingale = 0
 estrategia = 2 #4 = 6x4, 3 = 7x3, 2 = 8x2, etc...
-soros_level = 2
+soros_level = 0
 
 soros = 0
 soros_valor = 0
@@ -516,6 +516,10 @@ def Martingale(mg, mult, entrada, ciclo, par, op, lock, cores, f_s, primeiro_cic
 
 def aposta_azul(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quantidade_velas, valor_entrada, martingale, operacao, lock, cores, primeiro_ciclo):
 	print("\n\n* Possível entrada em",par,"a favor do ciclo azul, encontrada...\n\n")
+	azul = cores.count("grrr") + cores.count("rggg")
+	rosa = cores.count("rggr") + cores.count("grrg")
+	telegram_bot_sendtext("Possível entrada em " + par + " a favor do ciclo azul. Confira a sequência: " + cores + "\nAzul: " + str(azul) + "\nRosa: " + str(rosa))
+
 	gales = 0
 	aposta = "azul"
 	entr = valor_entrada
@@ -638,6 +642,9 @@ def aposta_rosa(azul, rosa, primeira_sequencia, par, stop_gain, stop_loss, quant
 
 		
 	print("\n\n* Possível entrada em",par,"a favor do ciclo rosa, encontrada...\n\n")
+	azul = cores.count("grrr") + cores.count("rggg")
+	rosa = cores.count("rggr") + cores.count("grrg")
+	telegram_bot_sendtext("Possível entrada em " + par + " a favor do ciclo rosa. Confira a sequência: " + cores + "\nAzul: " + str(azul) + "\nRosa: " + str(rosa))
 	entr = valor_entrada
 	gales = 0
 	aposta = "rosa"
